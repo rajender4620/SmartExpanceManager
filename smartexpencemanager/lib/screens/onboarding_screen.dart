@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -63,7 +64,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   controller: _pageController,
                   count: _pages.length,
                   effect: WormEffect(
-                    dotColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    dotColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.2),
                     activeDotColor: Theme.of(context).colorScheme.primary,
                     dotHeight: 10,
                     dotWidth: 10,
@@ -81,15 +84,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           curve: Curves.easeInOut,
                         );
                       } else {
-                        // TODO: Navigate to home screen
-                        debugPrint('Navigate to home screen');
+                        Navigator.of(context).pushReplacementNamed('/dashboard');
                       }
                     },
                     child: SizedBox(
                       width: double.infinity,
                       child: Center(
                         child: Text(
-                          _currentPage < _pages.length - 1 ? 'Next' : 'Get Started',
+                          _currentPage < _pages.length - 1
+                              ? 'Next'
+                              : 'Get Started',
                           style: const TextStyle(fontSize: 16),
                         ),
                       ),
@@ -135,9 +139,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(
             page.description,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.grey[600],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
           ),
         ],
       ),
