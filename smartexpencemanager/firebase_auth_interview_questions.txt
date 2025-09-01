@@ -1,0 +1,194 @@
+Flutter and Firebase Authentication Interview Questions
+
+Below is a list of questions and answers about Firebase Authentication in Flutter, explained in simple English for an interview. Read these to prepare and explain clearly to the interviewer.
+
+---
+
+Basic Firebase Authentication Questions
+
+1. What is Firebase Authentication, and why do we use it in Flutter apps?
+   Answer: Firebase Authentication is a Google tool that helps apps let users sign in safely. It supports login methods like email, password, Google, or phone number. In Flutter, we use it because it’s easy to add, saves time, and keeps user data secure. It also works with other Firebase tools, like databases, to control who can see or change data.
+
+2. What are the different ways users can sign in with Firebase Authentication?
+   Answer: Firebase allows sign-in with:
+   - Email and password
+   - Phone number with a code (OTP)
+   - Social accounts like Google, Facebook, Twitter, or Apple
+   - Anonymous login (no account needed)
+   - Custom systems for special cases
+   You can turn these on in the Firebase dashboard and add them to your Flutter app.
+
+3. How do you add Firebase Authentication to a Flutter app?
+   Answer: To add Firebase Authentication:
+   - Create a project on the Firebase website.
+   - Add your app to the project and download a setup file for Android or iOS.
+   - Add two packages in your Flutter app: firebase_core and firebase_auth.
+   - Start Firebase in your app’s main code like this:
+     import 'package:firebase_core/firebase_core.dart';
+     import 'package:flutter/material.dart';
+     void main() async {
+       await Firebase.initializeApp();
+       runApp(MyApp());
+     }
+   - Then, use Firebase Authentication to sign users in or out.
+
+4. Why is Firebase Authentication helpful for Flutter apps?
+   Answer: It’s helpful because:
+   - It’s simple to set up and use.
+   - It supports many login methods, so you don’t need to build them yourself.
+   - It’s secure and protects user information.
+   - It works on both Android and iOS.
+   - It can handle many users without slowing down.
+
+5. What is SHA-1, and why is it used in Firebase Authentication?
+   Answer: SHA-1 is like a unique ID for your app. Firebase uses it to check that your app is real when using Google Sign-In or other features. You get the SHA-1 from your app’s code and add it to the Firebase dashboard. This keeps your app safe by stopping fake apps.
+
+---
+
+Intermediate Firebase Authentication Questions
+
+6. How do you let users sign up or log in with email and password in Flutter?
+   Answer: To let users sign up or log in:
+   - Turn on email/password login in the Firebase dashboard.
+   - Use the firebase_auth package in Flutter. For example:
+     import 'package:firebase_auth/firebase_auth.dart';
+     // Sign up
+     Future<void> signUp(String email, String password) async {
+       try {
+         var user = await FirebaseAuth.instance
+             .createUserWithEmailAndPassword(email: email, password: password);
+         print("New user: ${user.user?.uid}");
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+     // Log in
+     Future<void> signIn(String email, String password) async {
+       try {
+         var user = await FirebaseAuth.instance
+             .signInWithEmailAndPassword(email: email, password: password);
+         print("Logged in: ${user.user?.uid}");
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+   - Show error messages like “wrong password” or “email not found” to help users.
+
+7. How do you add Google Sign-In to a Flutter app with Firebase?
+   Answer: To add Google Sign-In:
+   - Turn on Google Sign-In in the Firebase dashboard and add your app’s SHA-1.
+   - Add the google_sign_in package to your Flutter app.
+   - Use code like this:
+     import 'package:firebase_auth/firebase_auth.dart';
+     import 'package:google_sign_in/google_sign_in.dart';
+     Future<void> signInWithGoogle() async {
+       try {
+         var googleUser = await GoogleSignIn().signIn();
+         var googleAuth = await googleUser!.authentication;
+         var credential = GoogleAuthProvider.credential(
+           accessToken: googleAuth.accessToken,
+           idToken: googleAuth.idToken,
+         );
+         var user = await FirebaseAuth.instance.signInWithCredential(credential);
+         print("Signed in with Google: ${user.user?.uid}");
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+   - Make sure Google settings are correct in the Google Cloud Console.
+
+8. How does Firebase Authentication keep track of a user’s login in Flutter?
+   Answer: Firebase uses a special token to track users when they log in. In Flutter, you can check if someone is logged in with FirebaseAuth.instance.currentUser. To know when a user logs in or out, use this:
+     FirebaseAuth.instance.authStateChanges().listen((User? user) {
+       if (user != null) {
+         print("User is logged in: ${user.uid}");
+       } else {
+         print("No user is logged in.");
+       }
+     });
+   This helps update your app’s screen, like showing a home page or login page.
+
+9. How do you let users reset their password in Flutter with Firebase?
+   Answer: To help users reset their password:
+   - Use this code:
+     Future<void> resetPassword(String email) async {
+       try {
+         await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+         print("Password reset email sent.");
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+   - Make sure email login is turned on in Firebase.
+   - Tell users if there’s an issue, like “email not found.”
+
+10. What are Firebase Security Rules, and how do they work with Authentication?
+    Answer: Firebase Security Rules are like locks on your app’s data. They decide who can read or change things in Firebase, like a database or storage. They use the user’s login details to check if they’re allowed. For example:
+    {
+      "rules": {
+        "users": {
+          "$uid": {
+            ".read": "auth != null && auth.uid == $uid",
+            ".write": "auth != null && auth.uid == $uid"
+          }
+        }
+      }
+    }
+    This rule says only a logged-in user can access their own data. In Flutter, your app follows these rules when users log in.
+
+---
+
+Advanced Firebase Authentication Questions
+
+11. How do you add phone number login with OTP in a Flutter web app using Firebase?
+    Answer: Phone number login with OTP in Flutter web works like this:
+   - Turn on phone authentication in the Firebase dashboard.
+   - Add the firebase_auth package to your Flutter app.
+   - Use this code:
+     import 'package:firebase_auth/firebase_auth.dart';
+     Future<void> signInWithPhone(String phoneNumber) async {
+       try {
+         await FirebaseAuth.instance.verifyPhoneNumber(
+           phoneNumber: phoneNumber,
+           verificationCompleted: (PhoneAuthCredential credential) async {
+             await FirebaseAuth.instance.signInWithCredential(credential);
+             print("Signed in automatically");
+           },
+           verificationFailed: (FirebaseAuthException e) {
+             print("Error: $e");
+           },
+           codeSent: (String verificationId, int? resendToken) {
+             print("Code sent to $phoneNumber");
+           },
+           codeAutoRetrievalTimeout: (String verificationId) {
+             print("Timeout");
+           },
+         );
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+     // When user enters OTP
+     Future<void> verifyOtp(String verificationId, String smsCode) async {
+       try {
+         PhoneAuthCredential credential = PhoneAuthProvider.credential(
+           verificationId: verificationId,
+           smsCode: smsCode,
+         );
+         await FirebaseAuth.instance.signInWithCredential(credential);
+         print("Signed in with phone");
+       } catch (e) {
+         print("Error: $e");
+       }
+     }
+   - For web, add a reCAPTCHA to verify the user isn’t a robot.
+   - Show a place for the user to enter the OTP code sent to their phone.
+
+---
+
+Tips for the Interview
+- Keep answers simple and avoid big technical words unless asked.
+- Sound excited about how Firebase makes things easier.
+- Use examples, like “This is how I’d let a user log in with Google.”
+- If you don’t know something, say, “I haven’t tried this yet, but I’d check the Firebase docs or try this way…” and suggest an idea.
+- Always explain how it works in a Flutter app.

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:csv/csv.dart';
-import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -9,11 +8,13 @@ import 'package:share_plus/share_plus.dart';
 class ReportService {
   static Future<void> exportToCsv(List<Map<String, dynamic>> data) async {
     final List<List<dynamic>> rows = [
-      ['Category', 'Amount', 'Date'], // Header
+      ['Title', 'Category', 'Amount', 'Date', 'Description'], // Header
       ...data.map((expense) => [
-            expense['category'],
-            expense['amount'],
-            expense['date'],
+            expense['title'] ?? '',
+            expense['category'] ?? '',
+            expense['amount'] ?? 0.0,
+            expense['date'] ?? '',
+            expense['description'] ?? '',
           ]),
     ];
 
@@ -25,7 +26,8 @@ class ReportService {
 
     await Share.shareXFiles(
       [XFile(path)],
-      subject: 'Expense Report',
+      subject: 'Expense Report - ${DateTime.now().toString().split(' ')[0]}',
+      text: 'Here\'s your expense report with ${data.length} transactions.',
     );
   }
 
@@ -68,7 +70,8 @@ class ReportService {
 
     await Share.shareXFiles(
       [XFile(path)],
-      subject: 'Expense Report',
+      subject: 'Expense Report - ${DateTime.now().toString().split(' ')[0]}',
+      text: 'Here\'s your detailed expense report with charts and analysis.',
     );
   }
 
@@ -79,8 +82,8 @@ class ReportService {
         final total = data.fold(0.0, (sum, e) => sum + (e['amount'] as double));
         final percentage = (item['amount'] as double) / total * 100;
         return [
-          item['category'],
-          '₹${item['amount'].toStringAsFixed(2)}',
+          item['category'] ?? 'Unknown',
+          '₹${(item['amount'] ?? 0.0).toStringAsFixed(2)}',
           '${percentage.toStringAsFixed(1)}%',
         ];
       }).toList(),
@@ -105,8 +108,8 @@ class ReportService {
     return pw.TableHelper.fromTextArray(
       headers: ['Day', 'Amount'],
       data: data.map((item) => [
-        item['day'],
-        '₹${item['amount'].toStringAsFixed(2)}',
+        item['day'] ?? 'Unknown',
+        '₹${(item['amount'] ?? 0.0).toStringAsFixed(2)}',
       ]).toList(),
       headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
       headerDecoration: const pw.BoxDecoration(

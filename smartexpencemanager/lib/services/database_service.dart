@@ -12,10 +12,10 @@ class DatabaseService {
   // Database constants
   static const String _databaseName = 'smart_expense_manager.db';
   static const int _databaseVersion = 1;
-  
+
   // Table names
   static const String _expensesTable = 'expenses';
-  
+
   // Get database instance
   Future<Database> get database async {
     _database ??= await _initDatabase();
@@ -25,7 +25,7 @@ class DatabaseService {
   // Initialize database
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), _databaseName);
-    
+
     return await openDatabase(
       path,
       version: _databaseVersion,
@@ -50,7 +50,7 @@ class DatabaseService {
     ''');
 
     // Insert some sample data
-    await _insertSampleData(db);
+    // await _insertSampleData(db);
   }
 
   // Handle database upgrades
@@ -62,7 +62,7 @@ class DatabaseService {
   Future<void> _insertSampleData(Database db) async {
     final uuid = Uuid();
     final now = DateTime.now();
-    
+
     final sampleExpenses = [
       Expense(
         id: uuid.v4(),
@@ -129,13 +129,13 @@ class DatabaseService {
     final uuid = Uuid();
     final id = uuid.v4();
     final now = DateTime.now();
-    
+
     final expenseWithId = expense.copyWith(
       id: id,
       createdAt: now,
       updatedAt: now,
     );
-    
+
     await db.insert(_expensesTable, expenseWithId.toMap());
     return id;
   }
@@ -143,16 +143,16 @@ class DatabaseService {
   // Read all expenses
   Future<List<Expense>> getAllExpenses() async {
     final db = await database;
-    final result = await db.query(
-      _expensesTable,
-      orderBy: 'date DESC',
-    );
-    
+    final result = await db.query(_expensesTable, orderBy: 'date DESC');
+
     return result.map((map) => Expense.fromMap(map)).toList();
   }
 
   // Read expenses by date range
-  Future<List<Expense>> getExpensesByDateRange(DateTime start, DateTime end) async {
+  Future<List<Expense>> getExpensesByDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
     final db = await database;
     final result = await db.query(
       _expensesTable,
@@ -160,7 +160,7 @@ class DatabaseService {
       whereArgs: [start.toIso8601String(), end.toIso8601String()],
       orderBy: 'date DESC',
     );
-    
+
     return result.map((map) => Expense.fromMap(map)).toList();
   }
 
@@ -173,7 +173,7 @@ class DatabaseService {
       whereArgs: [category],
       orderBy: 'date DESC',
     );
-    
+
     return result.map((map) => Expense.fromMap(map)).toList();
   }
 
@@ -185,7 +185,7 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [id],
     );
-    
+
     if (result.isNotEmpty) {
       return Expense.fromMap(result.first);
     }
@@ -196,7 +196,7 @@ class DatabaseService {
   Future<void> updateExpense(Expense expense) async {
     final db = await database;
     final updatedExpense = expense.copyWith(updatedAt: DateTime.now());
-    
+
     await db.update(
       _expensesTable,
       updatedExpense.toMap(),
@@ -208,17 +208,15 @@ class DatabaseService {
   // Delete expense
   Future<void> deleteExpense(String id) async {
     final db = await database;
-    await db.delete(
-      _expensesTable,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete(_expensesTable, where: 'id = ?', whereArgs: [id]);
   }
 
   // Get total expenses
   Future<double> getTotalExpenses() async {
     final db = await database;
-    final result = await db.rawQuery('SELECT SUM(amount) as total FROM $_expensesTable');
+    final result = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM $_expensesTable',
+    );
     return (result.first['total'] as double?) ?? 0.0;
   }
 
@@ -230,10 +228,11 @@ class DatabaseService {
       FROM $_expensesTable 
       GROUP BY category
     ''');
-    
+
     final Map<String, double> categoryTotals = {};
     for (final row in result) {
-      categoryTotals[row['category'] as String] = (row['total'] as double?) ?? 0.0;
+      categoryTotals[row['category'] as String] =
+          (row['total'] as double?) ?? 0.0;
     }
     return categoryTotals;
   }
@@ -246,7 +245,7 @@ class DatabaseService {
       orderBy: 'date DESC',
       limit: limit,
     );
-    
+
     return result.map((map) => Expense.fromMap(map)).toList();
   }
 
@@ -255,8 +254,46 @@ class DatabaseService {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 0);
-    
+
     return getExpensesByDateRange(startOfMonth, endOfMonth);
+  }
+
+  // Get total expenses for current month
+  Future<double> getCurrentMonthTotal() async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total 
+      FROM $_expensesTable 
+      WHERE date >= ? AND date <= ?
+    ''',
+      [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()],
+    );
+
+    return (result.first['total'] as double?) ?? 0.0;
+  }
+
+  // Get transaction count for current month
+  Future<int> getCurrentMonthTransactionCount() async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count 
+      FROM $_expensesTable 
+      WHERE date >= ? AND date <= ?
+    ''',
+      [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()],
+    );
+
+    return (result.first['count'] as int?) ?? 0;
   }
 
   // Clear all data (for testing purposes)

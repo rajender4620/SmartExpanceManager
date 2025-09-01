@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/insight.dart';
+import '../services/insights_service.dart';
 
 class InsightsScreen extends StatefulWidget {
   const InsightsScreen({super.key});
@@ -11,33 +12,44 @@ class InsightsScreen extends StatefulWidget {
 
 class _InsightsScreenState extends State<InsightsScreen> {
   bool _isLoading = false;
-  final List<Insight> _insights = [
-    Insight(
-      message: 'You spent 45% more on Food this month compared to your average.',
-      type: InsightType.warning,
-      timestamp: DateTime.now(),
-    ),
-    Insight(
-      message: 'Travel expenses reduced by 20% compared to last month.',
-      type: InsightType.success,
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-    ),
-    Insight(
-      message: 'Your savings rate this month is 15% - on track with your goal!',
-      type: InsightType.info,
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    Insight(
-      message: 'Consider setting a budget for entertainment expenses.',
-      type: InsightType.tip,
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-    ),
-  ];
+  List<Insight> _insights = [];
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInsights();
+  }
+
+  Future<void> _loadInsights() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final insights = await InsightsService.generateInsights();
+      setState(() {
+        _insights = insights;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+        _insights = [
+          Insight(
+            message: 'Unable to generate insights. Please check your data and try again.',
+            type: InsightType.info,
+            timestamp: DateTime.now(),
+          ),
+        ];
+      });
+    }
+  }
 
   Future<void> _refreshInsights() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-    setState(() => _isLoading = false);
+    await _loadInsights();
   }
 
   @override
@@ -51,18 +63,105 @@ class _InsightsScreenState extends State<InsightsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 24),
-                  ..._buildInsightsList(),
-                  const SizedBox(height: 24),
-                  _buildRefreshButton(),
-                  const SizedBox(height: 16),
-                ],
+                                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+                    if (_errorMessage != null) _buildErrorCard(),
+                    if (_errorMessage != null) const SizedBox(height: 16),
+                    if (_insights.isNotEmpty) ..._buildInsightsList(),
+                    if (_insights.isEmpty && !_isLoading && _errorMessage == null) _buildEmptyState(),
+                    const SizedBox(height: 24),
+                    _buildRefreshButton(),
+                    const SizedBox(height: 16),
+                  ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard() {
+    return Card(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.red.withOpacity(0.1),
+              Colors.red.withOpacity(0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Error Loading Insights',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                  Text(
+                    _errorMessage ?? 'Unknown error occurred',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.red[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Card(
+      child: Container(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            Icon(
+              Icons.lightbulb_outline,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No Insights Available',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add more expenses to get personalized insights about your spending patterns.',
+              style: GoogleFonts.poppins(
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -138,7 +237,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Get personalized financial recommendations',
+                    _isLoading
+                        ? 'Analyzing your spending patterns...'
+                        : 'Get personalized financial recommendations',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: Colors.grey[600],

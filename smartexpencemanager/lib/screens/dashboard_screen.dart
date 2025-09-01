@@ -3,10 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smartexpencemanager/blocs/navigation/navigation_bloc.dart';
 import 'package:smartexpencemanager/blocs/navigation/navigation_event.dart';
+import 'package:smartexpencemanager/blocs/expense/expense_bloc.dart';
+import 'package:smartexpencemanager/blocs/expense/expense_event.dart';
+import 'package:smartexpencemanager/blocs/expense/expense_state.dart';
+
 import 'package:smartexpencemanager/services/navigation_service.dart';
-import 'package:smartexpencemanager/services/database_service.dart';
 import 'package:smartexpencemanager/models/expense.dart';
 import 'package:smartexpencemanager/models/expense_category.dart';
+import 'package:smartexpencemanager/widgets/theme_toggle_widget.dart';
+import 'package:smartexpencemanager/blocs/auth/auth_bloc.dart';
+import 'package:smartexpencemanager/blocs/auth/auth_event.dart';
+import 'package:smartexpencemanager/blocs/auth/auth_state.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,78 +23,169 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final DatabaseService _databaseService = DatabaseService();
-  double _totalBalance = 0.0;
-  List<Expense> _recentExpenses = [];
-  bool _isLoading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
-  }
-
-  Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final totalExpenses = await _databaseService.getTotalExpenses();
-      final recentExpenses = await _databaseService.getRecentExpenses(limit: 5);
-
-      setState(() {
-        _totalBalance =
-            5000.0 - totalExpenses; // Assuming starting balance of 5000
-        _recentExpenses = recentExpenses;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error loading data: $e')));
-      }
-    }
+    // Load current month data
+    context.read<ExpenseBloc>().add(const LoadExpensesByTimeRange('Month'));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.05),
-              Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+    return BlocBuilder<ExpenseBloc, ExpenseState>(
+      builder: (context, state) {
+        if (state.status == ExpenseStatus.loading) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        // Calculate dashboard metrics
+        final currentMonthTotal = state.totalExpenses;
+        final transactionCount = state.expenses.length;
+        final now = DateTime.now();
+        final daysInMonth = now.day;
+        final avgPerDay = daysInMonth > 0 ? currentMonthTotal / daysInMonth : 0.0;
+        final recentExpenses = state.expenses.take(5).toList();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Dashboard',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            actions: [
+              const ThemeToggleWidget(),
+              BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, authState) {
+                  if (authState.isAuthenticated) {
+                    return PopupMenuButton<String>(
+                      icon: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: authState.userPhotoUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  authState.userPhotoUrl!,
+                                  width: 32,
+                                  height: 32,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(
+                                      Icons.person,
+                                      size: 20,
+                                      color: Colors.white,
+                                    );
+                                  },
+                                ),
+                              )
+                            : Icon(
+                                Icons.person,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                      ),
+                      onSelected: (value) {
+                        if (value == 'logout') {
+                          _showLogoutDialog(context);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'profile',
+                          child: Row(
+                            children: [
+                              Icon(Icons.person_outline),
+                              SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    authState.userName ?? 'User',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    authState.userEmail ?? '',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuDivider(),
+                        PopupMenuItem(
+                          value: 'logout',
+                          child: Row(
+                            children: [
+                              Icon(Icons.logout, color: Colors.red),
+                              SizedBox(width: 12),
+                              Text(
+                                'Sign Out',
+                                style: GoogleFonts.poppins(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return SizedBox.shrink();
+                },
+              ),
+              const SizedBox(width: 8),
             ],
           ),
-        ),
-        child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildTotalBalanceCard(context),
-              const SizedBox(height: 24),
-              _buildAddExpenseButton(context),
-              const SizedBox(height: 24),
-              _buildRecentExpensesCard(context),
-              const SizedBox(height: 24),
-              _buildAIInsightsCard(context),
-              // const SizedBox(height: 24),
-              // _buildDatabaseTestButton(context),
-            ],
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                  Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                ],
+              ),
+            ),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                context.read<ExpenseBloc>().add(const RefreshExpenses());
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildTotalBalanceCard(context, currentMonthTotal, transactionCount, avgPerDay),
+                  const SizedBox(height: 24),
+                  // Only show add expense button if there are existing expenses
+                  if (recentExpenses.isNotEmpty) ...[
+                    _buildAddExpenseButton(context),
+                    const SizedBox(height: 24),
+                  ],
+                  _buildRecentExpensesCard(context, recentExpenses),
+                  const SizedBox(height: 24),
+                  // Only show AI insights if there are expenses to analyze
+                  if (recentExpenses.isNotEmpty)
+                    _buildAIInsightsCard(context)
+                  else
+                    _buildGettingStartedCard(context),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildTotalBalanceCard(BuildContext context) {
+  Widget _buildTotalBalanceCard(BuildContext context, double currentMonthTotal, int transactionCount, double avgPerDay) {
+    final bool isEmpty = currentMonthTotal == 0 && transactionCount == 0;
+    
     return Card(
       elevation: 4,
       shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
@@ -107,39 +205,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Total Balance',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.white.withOpacity(0.8),
-              ),
+            Row(
+              children: [
+                Text(
+                  'This Month',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+                if (isEmpty) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.celebration,
+                    color: Colors.amber.shade200,
+                    size: 20,
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 8),
             Text(
-              '₹${_totalBalance.toStringAsFixed(2)}',
+              isEmpty ? '₹0.00' : '₹${currentMonthTotal.toStringAsFixed(2)}',
               style: GoogleFonts.poppins(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
+            if (isEmpty)
+              Text(
+                'Ready to start tracking!',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white.withOpacity(0.9),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildQuickStat(
                   context,
-                  'Income',
-                  '+₹2,450',
-                  Icons.arrow_upward,
-                  Colors.green,
+                  'Transactions',
+                  '$transactionCount',
+                  Icons.receipt_long,
+                  Colors.purple.shade300,
                 ),
                 _buildQuickStat(
                   context,
-                  'Expenses',
-                  '-₹${(5000.0 - _totalBalance).toStringAsFixed(2)}',
-                  Icons.arrow_downward,
-                  Colors.red.shade300,
+                  isEmpty ? 'Avg/Day' : 'Avg/Day',
+                  isEmpty ? '₹0' : '₹${avgPerDay.toStringAsFixed(0)}',
+                  Icons.trending_up,
+                  Colors.teal.shade300,
                 ),
               ],
             ),
@@ -202,8 +321,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             NavigationService.expenseForm,
           );
           if (result != null) {
-            // Refresh dashboard data when returning from expense form
-            _loadDashboardData();
+            // Refresh data when returning from expense form
+            context.read<ExpenseBloc>().add(const RefreshExpenses());
           }
         },
         borderRadius: BorderRadius.circular(16),
@@ -239,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildRecentExpensesCard(BuildContext context) {
+  Widget _buildRecentExpensesCard(BuildContext context, List<Expense> recentExpenses) {
     return Card(
       elevation: 2,
       shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
@@ -275,30 +394,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            ..._recentExpenses
-                .map(
-                  (expense) => _buildExpenseItem(
-                    context,
-                    expense.title,
-                    '₹${expense.amount.toStringAsFixed(2)}',
-                    _getCategoryIcon(expense.category),
-                    expense.date,
-                  ),
-                )
-                .toList(),
-            if (_recentExpenses.isEmpty)
+            if (recentExpenses.isEmpty)
               Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'No expenses yet. Add your first expense!',
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Welcome to Smart Expense Manager!',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Start tracking your expenses to get insights\nabout your spending habits',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.pushNamed(
+                            context,
+                            NavigationService.expenseForm,
+                          );
+                          if (result != null) {
+                            context.read<ExpenseBloc>().add(const RefreshExpenses());
+                          }
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: Text(
+                          'Add Your First Expense',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              )
+            else
+              ...recentExpenses.map((expense) => _buildExpenseItem(
+                context,
+                expense.title,
+                '₹${expense.amount.toStringAsFixed(2)}',
+                _getCategoryIcon(expense.category),
+                expense.date,
+              )),
           ],
         ),
       ),
@@ -393,7 +564,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Your spending on dining out has increased by 15% this month. Would you like to set a budget?',
+              'Get personalized insights about your spending patterns and recommendations to optimize your budget.',
               style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
             ),
             const SizedBox(height: 12),
@@ -405,7 +576,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               },
               child: Text(
-                'View Details →',
+                'View Insights →',
                 style: GoogleFonts.poppins(
                   color: Theme.of(context).colorScheme.primary,
                   fontWeight: FontWeight.w500,
@@ -418,55 +589,145 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDatabaseTestButton(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.blue.withOpacity(0.2),
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, NavigationService.databaseTest);
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          child: Row(
+  Widget _buildGettingStartedCard(BuildContext context) {
+    return ThemeAwareCard(
+      useGradient: true,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.storage, color: Colors.blue, size: 24),
+              Icon(
+                Icons.lightbulb_outline,
+                color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Test Database Connection',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Verify that your database is working properly',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 8),
+              Text(
+                'Getting Started',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
+              const Spacer(),
+              const ThemeToggleWidget(showLabel: true),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Column(
+            children: [
+              _buildTipItem(
+                context,
+                Icons.add_circle_outline,
+                'Add Expenses',
+                'Record your daily expenses to track spending',
+              ),
+              const SizedBox(height: 12),
+              _buildTipItem(
+                context,
+                Icons.category_outlined,
+                'Categorize',
+                'Organize expenses by categories for better insights',
+              ),
+              const SizedBox(height: 12),
+              _buildTipItem(
+                context,
+                Icons.analytics_outlined,
+                'Analyze',
+                'View reports and AI insights to optimize your budget',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTipItem(BuildContext context, IconData icon, String title, String description) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                description,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
             ],
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Sign Out',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            'Are you sure you want to sign out?',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.read<AuthBloc>().add(const SignOutRequested());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Sign Out',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../blocs/expense/expense_bloc.dart';
+import '../blocs/expense/expense_event.dart';
+import '../blocs/expense/expense_state.dart';
+import '../models/expense_category.dart';
+import '../services/report_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -10,37 +16,16 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  String _selectedTimeRange = 'Week';
+  String _selectedTimeRange = 'Month';
   final List<String> _timeRanges = ['Week', 'Month', 'Year'];
+  bool _isExporting = false;
 
-  // Sample data - Replace with actual data from your database
-  final List<Map<String, dynamic>> _expenseData = [
-    {
-      'category': 'Food & Dining',
-      'amount': 450.0,
-      'color': const Color(0xFFFF9E80),
-    },
-    {'category': 'Travel', 'amount': 850.0, 'color': const Color(0xFF80DEEA)},
-    {
-      'category': 'Bills & Utilities',
-      'amount': 320.0,
-      'color': const Color(0xFFB39DDB),
-    },
-    {'category': 'Shopping', 'amount': 650.0, 'color': const Color(0xFFFFF59D)},
-  ];
-
-  final List<Map<String, dynamic>> _weeklyData = [
-    {'day': 'Mon', 'amount': 120.0},
-    {'day': 'Tue', 'amount': 80.0},
-    {'day': 'Wed', 'amount': 150.0},
-    {'day': 'Thu', 'amount': 90.0},
-    {'day': 'Fri', 'amount': 200.0},
-    {'day': 'Sat', 'amount': 180.0},
-    {'day': 'Sun', 'amount': 100.0},
-  ];
-
-  double get _totalExpenses =>
-      _expenseData.fold(0, (sum, item) => sum + (item['amount'] as double));
+  @override
+  void initState() {
+    super.initState();
+    // Load initial data for the month
+    context.read<ExpenseBloc>().add(const LoadExpensesByTimeRange('Month'));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,22 +37,97 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildTimeRangeSelector(),
-              const SizedBox(height: 24),
-              _buildCategoryDistributionCard(),
-              const SizedBox(height: 24),
-              _buildSpendingTrendsCard(),
-              const SizedBox(height: 24),
-              _buildActionButtons(),
-            ],
-          ),
-        ),
+      body: BlocBuilder<ExpenseBloc, ExpenseState>(
+        builder: (context, state) {
+          if (state.status == ExpenseStatus.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (state.status == ExpenseStatus.failure) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading reports',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    state.errorMessage ?? 'Unknown error occurred',
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<ExpenseBloc>().add(
+                        LoadExpensesByTimeRange(_selectedTimeRange),
+                      );
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (state.expenses.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No Expenses Found',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add some expenses to see reports',
+                    style: GoogleFonts.poppins(color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildTimeRangeSelector(),
+                  const SizedBox(height: 24),
+                  _buildCategoryDistributionCard(state),
+                  const SizedBox(height: 24),
+                  _buildSpendingTrendsCard(state),
+                  const SizedBox(height: 24),
+                  _buildActionButtons(state),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -83,7 +143,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
               _timeRanges.map((range) {
                 final isSelected = range == _selectedTimeRange;
                 return InkWell(
-                  onTap: () => setState(() => _selectedTimeRange = range),
+                  onTap: () {
+                    setState(() => _selectedTimeRange = range);
+                    context.read<ExpenseBloc>().add(
+                      LoadExpensesByTimeRange(range),
+                    );
+                  },
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -113,7 +178,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildCategoryDistributionCard() {
+  Widget _buildCategoryDistributionCard(ExpenseState state) {
+    final expenseData = _generateCategoryData(state.categoryTotals);
     return Card(
       elevation: 2,
       child: Padding(
@@ -130,17 +196,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 200,
+              height: 250,
               child: PieChart(
                 PieChartData(
                   sectionsSpace: 2,
                   centerSpaceRadius: 40,
                   sections:
-                      _expenseData.map((data) {
+                      expenseData.map((data) {
                         return PieChartSectionData(
                           value: data['amount'],
                           title:
-                              '${((data['amount'] / _totalExpenses) * 100).toStringAsFixed(1)}%',
+                              '${((data['amount'] / state.totalExpenses) * 100).toStringAsFixed(1)}%',
                           color: data['color'],
                           radius: 100,
                           titleStyle: GoogleFonts.poppins(
@@ -159,7 +225,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               spacing: 16,
               runSpacing: 8,
               children:
-                  _expenseData.map((data) {
+                  expenseData.map((data) {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -186,7 +252,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildSpendingTrendsCard() {
+  Widget _buildSpendingTrendsCard(ExpenseState state) {
+    final trendData = state.trendData;
     return Card(
       elevation: 2,
       child: Padding(
@@ -208,18 +275,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
                   maxY:
-                      _weeklyData
-                          .map((e) => e['amount'])
-                          .reduce((a, b) => a > b ? a : b) *
-                      1.2,
+                      trendData.isNotEmpty
+                          ? trendData
+                                  .map((e) => e['amount'] as double)
+                                  .reduce((a, b) => a > b ? a : b) *
+                              1.2
+                          : 100.0,
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
                       tooltipBgColor: Colors.blueGrey,
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        return BarTooltipItem(
-                          '₹${_weeklyData[groupIndex]['amount'].toStringAsFixed(2)}',
-                          GoogleFonts.poppins(color: Colors.white),
-                        );
+                        if (groupIndex < trendData.length) {
+                          return BarTooltipItem(
+                            '₹${trendData[groupIndex]['amount'].toStringAsFixed(2)}',
+                            GoogleFonts.poppins(color: Colors.white),
+                          );
+                        }
+                        return null;
                       },
                     ),
                   ),
@@ -235,10 +307,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          return Text(
-                            _weeklyData[value.toInt()]['day'],
-                            style: GoogleFonts.poppins(fontSize: 12),
-                          );
+                          final index = value.toInt();
+                          if (index >= 0 && index < trendData.length) {
+                            return Text(
+                              trendData[index]['day'],
+                              style: GoogleFonts.poppins(fontSize: 12),
+                            );
+                          }
+                          return const Text('');
                         },
                       ),
                     ),
@@ -258,7 +334,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   borderData: FlBorderData(show: false),
                   gridData: const FlGridData(show: false),
                   barGroups:
-                      _weeklyData.asMap().entries.map((entry) {
+                      trendData.asMap().entries.map((entry) {
                         return BarChartGroupData(
                           x: entry.key,
                           barRods: [
@@ -280,15 +356,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(ExpenseState state) {
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _exportToCsv,
-                icon: const Icon(Icons.table_chart),
+                onPressed: _isExporting ? null : () => _exportToCsv(state),
+                icon:
+                    _isExporting
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.table_chart),
                 label: Text('Export CSV', style: GoogleFonts.poppins()),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -298,8 +381,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: _exportToPdf,
-                icon: const Icon(Icons.picture_as_pdf),
+                onPressed: _isExporting ? null : () => _exportToPdf(state),
+                icon:
+                    _isExporting
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                        : const Icon(Icons.picture_as_pdf),
                 label: Text('Export PDF', style: GoogleFonts.poppins()),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -312,7 +402,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _previewReport,
+            onPressed: _isExporting ? null : () => _previewReport(state),
             icon: const Icon(Icons.preview),
             label: Text('Preview Report', style: GoogleFonts.poppins()),
             style: OutlinedButton.styleFrom(
@@ -324,15 +414,164 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  void _exportToCsv() async {
-    // TODO: Implement CSV export
+  List<Map<String, dynamic>> _generateCategoryData(
+    Map<String, double> categoryTotals,
+  ) {
+    return categoryTotals.entries.map((entry) {
+      final category = ExpenseCategory.categories.firstWhere(
+        (cat) => cat.name == entry.key,
+        orElse: () => ExpenseCategory.categories.last, // Default to 'Other'
+      );
+
+      return {
+        'category': entry.key,
+        'amount': entry.value,
+        'color': category.color,
+      };
+    }).toList();
   }
 
-  void _exportToPdf() async {
-    // TODO: Implement PDF export
+  Future<void> _exportToCsv(ExpenseState state) async {
+    setState(() => _isExporting = true);
+
+    try {
+      final expenseData =
+          state.expenses
+              .map(
+                (expense) => {
+                  'title': expense.title,
+                  'category': expense.category,
+                  'amount': expense.amount,
+                  'date': expense.date.toIso8601String().split('T')[0],
+                  'description': expense.description ?? '',
+                },
+              )
+              .toList();
+
+      await ReportService.exportToCsv(expenseData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'CSV report exported successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error exporting CSV: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
   }
 
-  void _previewReport() {
-    // TODO: Implement report preview
+  Future<void> _exportToPdf(ExpenseState state) async {
+    setState(() => _isExporting = true);
+
+    try {
+      final categoryData = _generateCategoryData(state.categoryTotals);
+      final trendData = state.trendData;
+
+      await ReportService.exportToPdf(categoryData, trendData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'PDF report exported successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error exporting PDF: $e',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isExporting = false);
+    }
+  }
+
+  void _previewReport(ExpenseState state) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(
+              'Report Summary',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Period: $_selectedTimeRange',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Total Expenses: ₹${state.totalExpenses.toStringAsFixed(2)}',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Number of Transactions: ${state.expenses.length}',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Top Categories:',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  ...state.categoryTotals.entries
+                      .toList()
+                      .take(3)
+                      .map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            '${entry.key}: ₹${entry.value.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(),
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Close', style: GoogleFonts.poppins()),
+              ),
+            ],
+          ),
+    );
   }
 }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/database_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/expense.dart';
 import '../models/expense_category.dart';
 import '../services/navigation_service.dart';
+import '../blocs/expense/expense_bloc.dart';
+import '../blocs/expense/expense_event.dart';
+import '../blocs/expense/expense_state.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -16,66 +19,16 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   String selectedFilter = 'Month';
   final List<String> filterOptions = ['Today', 'Week', 'Month'];
   Map<String, bool> expandedCategories = {};
-  final DatabaseService _databaseService = DatabaseService();
-  Map<String, List<Expense>> _expensesByCategory = {};
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadExpenses();
+    // Load expenses for the month initially
+    context.read<ExpenseBloc>().add(const LoadExpensesByTimeRange('Month'));
   }
 
-  Future<void> _loadExpenses() async {
-    setState(() => _isLoading = true);
-    
-    try {
-      List<Expense> expenses;
-      final now = DateTime.now();
-      
-      switch (selectedFilter) {
-        case 'Today':
-          final startOfDay = DateTime(now.year, now.month, now.day);
-          final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
-          expenses = await _databaseService.getExpensesByDateRange(startOfDay, endOfDay);
-          break;
-        case 'Week':
-          final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-          final endOfWeek = startOfWeek.add(const Duration(days: 6));
-          expenses = await _databaseService.getExpensesByDateRange(startOfWeek, endOfWeek);
-          break;
-        case 'Month':
-        default:
-          expenses = await _databaseService.getCurrentMonthExpenses();
-          break;
-      }
-
-      // Group expenses by category
-      final Map<String, List<Expense>> groupedExpenses = {};
-      for (final expense in expenses) {
-        if (groupedExpenses[expense.category] == null) {
-          groupedExpenses[expense.category] = [];
-        }
-        groupedExpenses[expense.category]!.add(expense);
-      }
-
-      setState(() {
-        _expensesByCategory = groupedExpenses;
-        // Initialize all categories as expanded
-        expandedCategories.clear();
-        for (final category in groupedExpenses.keys) {
-          expandedCategories[category] = true;
-        }
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading expenses: $e')),
-        );
-      }
-    }
+  void _loadExpenses() {
+    context.read<ExpenseBloc>().add(LoadExpensesByTimeRange(selectedFilter));
   }
 
   @override
@@ -84,319 +37,129 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       appBar: AppBar(
         title: Text(
           'Expenses',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: Column(
-        children: [
-          _buildFilterBar(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _expensesByCategory.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.receipt_long_outlined,
-                                size: 80,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No expenses for $selectedFilter',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Add your first expense to get started!',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.grey[500],
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _expensesByCategory.length,
-                        itemBuilder: (context, index) {
-                          String category = _expensesByCategory.keys.elementAt(index);
-                          return _buildCategoryCard(category);
-                        },
-                      ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              final result = await Navigator.pushNamed(
+                context,
+                NavigationService.expenseForm,
+              );
+              if (result != null) {
+                _loadExpenses(); // Refresh the list
+              }
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.pushNamed(context, NavigationService.expenseForm);
-          if (result != null) {
-            _loadExpenses(); // Refresh the list
-          }
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Widget _buildFilterBar() {
-    return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: filterOptions.length,
-        itemBuilder: (context, index) {
-          final filter = filterOptions[index];
-          final isSelected = filter == selectedFilter;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(
-                filter,
-                style: GoogleFonts.poppins(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      body: BlocBuilder<ExpenseBloc, ExpenseState>(
+        builder: (context, state) {
+          return Column(
+            children: [
+              _buildFilterChips(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<ExpenseBloc>().add(const RefreshExpenses());
+                  },
+                  child: state.status == ExpenseStatus.loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : state.expensesByCategory.isEmpty
+                          ? _buildEmptyState()
+                          : _buildExpensesList(state.expensesByCategory),
                 ),
               ),
-              selected: isSelected,
-              onSelected: (bool selected) {
-                setState(() {
-                  selectedFilter = filter;
-                });
-                _loadExpenses(); // Reload expenses with new filter
-              },
-              backgroundColor: Colors.white,
-              selectedColor: Theme.of(context).colorScheme.primary,
-              checkmarkColor: Colors.white,
-              elevation: 2,
-              shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
+            ],
           );
         },
       ),
     );
   }
 
-  Widget _buildCategoryCard(String category) {
-    final expenses = _expensesByCategory[category]!;
-    final categoryObj = ExpenseCategory.categories.firstWhere(
-      (cat) => cat.name == category,
-      orElse: () => ExpenseCategory.categories.last, // Default to "Other"
-    );
-    final totalAmount = expenses.fold<double>(0.0, (sum, expense) => sum + expense.amount);
-    final isExpanded = expandedCategories[category] ?? false;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shadowColor: categoryObj.color.withOpacity(0.3),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                expandedCategories[category] = !isExpanded;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: categoryObj.color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      categoryObj.icon,
-                      color: categoryObj.color,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '${expenses.length} expenses',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '₹${totalAmount.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                ],
+  Widget _buildFilterChips() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: filterOptions.map((filter) {
+          final isSelected = filter == selectedFilter;
+          return FilterChip(
+            label: Text(
+              filter,
+              style: GoogleFonts.poppins(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
-          ),
-          if (isExpanded)
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: expenses.length,
-              itemBuilder: (context, index) {
-                final expense = expenses[index];
-                return _buildExpenseItem(expense);
-              },
-            ),
-        ],
+            selected: isSelected,
+            onSelected: (selected) {
+              setState(() {
+                selectedFilter = filter;
+              });
+              _loadExpenses();
+            },
+            backgroundColor: Colors.grey[200],
+            selectedColor: Theme.of(context).colorScheme.primary,
+            checkmarkColor: Colors.white,
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildExpenseItem(Expense expense) {
-    final categoryObj = ExpenseCategory.categories.firstWhere(
-      (cat) => cat.name == expense.category,
-      orElse: () => ExpenseCategory.categories.last,
-    );
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: categoryObj.color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            categoryObj.icon,
-            color: categoryObj.color,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          expense.title,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          '${expense.date.day}/${expense.date.month}/${expense.date.year}',
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 24),
             Text(
-              '₹${expense.amount.toStringAsFixed(2)}',
+              'No expenses found',
               style: GoogleFonts.poppins(
-                fontSize: 14,
+                fontSize: 20,
                 fontWeight: FontWeight.w600,
+                color: Colors.grey[600],
               ),
             ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.grey),
-              onSelected: (String choice) async {
-                if (choice == 'edit') {
-                  final result = await Navigator.pushNamed(
-                    context,
-                    NavigationService.expenseForm,
-                    arguments: {
-                      'id': expense.id,
-                      'title': expense.title,
-                      'amount': expense.amount,
-                      'category': expense.category,
-                      'date': expense.date.toIso8601String(),
-                    },
-                  );
-                  if (result != null) {
-                    _loadExpenses(); // Refresh the list
-                  }
-                } else if (choice == 'delete') {
-                  _showDeleteConfirmation(expense);
+            const SizedBox(height: 8),
+            Text(
+              'Add your first expense to get started',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey[500],
+              ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final result = await Navigator.pushNamed(
+                  context,
+                  NavigationService.expenseForm,
+                );
+                if (result != null) {
+                  _loadExpenses();
                 }
               },
-              itemBuilder: (BuildContext context) => [
-                PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.edit, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Edit',
-                        style: GoogleFonts.poppins(),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete, size: 20, color: Colors.red),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Delete',
-                        style: GoogleFonts.poppins(
-                          color: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              icon: const Icon(Icons.add),
+              label: Text(
+                'Add Expense',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
             ),
           ],
         ),
@@ -404,7 +167,176 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     );
   }
 
-  void _showDeleteConfirmation(Expense expense) {
+  Widget _buildExpensesList(Map<String, List<Expense>> expensesByCategory) {
+    final sortedEntries = expensesByCategory.entries.toList()
+      ..sort((a, b) {
+        final totalA = a.value.fold(0.0, (sum, expense) => sum + expense.amount);
+        final totalB = b.value.fold(0.0, (sum, expense) => sum + expense.amount);
+        return totalB.compareTo(totalA); // Sort by total amount descending
+      });
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sortedEntries.length,
+      itemBuilder: (context, index) {
+        final entry = sortedEntries[index];
+        final category = entry.key;
+        final expenses = entry.value;
+        final categoryTotal = expenses.fold(0.0, (sum, expense) => sum + expense.amount);
+        final isExpanded = expandedCategories[category] ?? false;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          elevation: 2,
+          child: Column(
+            children: [
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: _getCategoryColor(category).withOpacity(0.2),
+                  child: Icon(
+                    _getCategoryIcon(category),
+                    color: _getCategoryColor(category),
+                  ),
+                ),
+                title: Text(
+                  category,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  '${expenses.length} transactions',
+                  style: GoogleFonts.poppins(color: Colors.grey[600]),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '₹${categoryTotal.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.grey[600],
+                    ),
+                  ],
+                ),
+                onTap: () {
+                  setState(() {
+                    expandedCategories[category] = !isExpanded;
+                  });
+                },
+              ),
+              if (isExpanded)
+                ...expenses.map((expense) => _buildExpenseItem(expense)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExpenseItem(Expense expense) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  expense.title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                if (expense.description != null && expense.description!.isNotEmpty)
+                  Text(
+                    expense.description!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                Text(
+                  '${expense.date.day}/${expense.date.month}/${expense.date.year}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '₹${expense.amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    onPressed: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        NavigationService.expenseForm,
+                        arguments: {
+                          'id': expense.id,
+                          'title': expense.title,
+                          'amount': expense.amount,
+                          'category': expense.category,
+                          'date': expense.date.toIso8601String(),
+                          'description': expense.description,
+                        },
+                      );
+                      if (result != null) {
+                        _loadExpenses();
+                      }
+                    },
+                    color: Theme.of(context).colorScheme.primary,
+                    tooltip: 'Edit',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, size: 18),
+                    onPressed: () => _showDeleteDialog(expense),
+                    color: Colors.red,
+                    tooltip: 'Delete',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(Expense expense) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -429,32 +361,51 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               onPressed: () async {
                 Navigator.of(context).pop();
                 try {
-                  await _databaseService.deleteExpense(expense.id!);
-                  _loadExpenses(); // Refresh the list
+                  // Delete from the BLoC
+                  context.read<ExpenseBloc>().add(DeleteExpense(expense.id!));
+                  
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text('Expense deleted successfully'),
-                        backgroundColor: Colors.green,
                       ),
                     );
                   }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error deleting expense: $e')),
+                      SnackBar(
+                        content: Text('Error deleting expense: $e'),
+                      ),
                     );
                   }
                 }
               },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: Text(
                 'Delete',
-                style: GoogleFonts.poppins(color: Colors.red),
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    final categoryObj = ExpenseCategory.categories.firstWhere(
+      (cat) => cat.name == category,
+      orElse: () => ExpenseCategory.categories.last, // Default to "Other"
+    );
+    return categoryObj.icon;
+  }
+
+  Color _getCategoryColor(String category) {
+    final categoryObj = ExpenseCategory.categories.firstWhere(
+      (cat) => cat.name == category,
+      orElse: () => ExpenseCategory.categories.last, // Default to "Other"
+    );
+    return categoryObj.color;
   }
 }

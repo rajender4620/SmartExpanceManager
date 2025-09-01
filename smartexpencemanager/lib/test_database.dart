@@ -31,7 +31,8 @@ class _DatabaseTestScreenState extends State<DatabaseTestScreen> {
       
       // Test 2: Get database instance
       final db = await _databaseService.database;
-      results.add('✅ Database instance created: ${db.path}');
+      results.add('✅ Database instance created');
+      results.add('📁 Database path: ${db.path}');
       
       // Test 3: Check if table exists
       final tables = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'");

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/expense_category.dart';
 import '../models/expense.dart';
 import '../services/database_service.dart';
+import '../blocs/expense/expense_bloc.dart';
+import '../blocs/expense/expense_event.dart';
 
 class ExpenseFormScreen extends StatefulWidget {
   final Map<String, dynamic>? expense;
@@ -19,6 +22,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final _descriptionController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   ExpenseCategory? _selectedCategory;
   final DatabaseService _databaseService = DatabaseService();
@@ -30,6 +34,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     if (widget.expense != null) {
       _titleController.text = widget.expense!['title'];
       _amountController.text = widget.expense!['amount'].toString();
+      _descriptionController.text = widget.expense!['description'] ?? '';
       _selectedDate = DateTime.parse(widget.expense!['date']);
       _selectedCategory = ExpenseCategory.categories.firstWhere(
         (category) => category.name == widget.expense!['category'],
@@ -41,6 +46,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -80,8 +86,12 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         final expense = Expense(
           title: _titleController.text.trim(),
           amount: double.parse(_amountController.text),
-          category: _selectedCategory!.name,
+          category: _selectedCategory?.name ?? 'Other',
           date: _selectedDate,
+          description:
+              _descriptionController.text.trim().isEmpty
+                  ? null
+                  : _descriptionController.text.trim(),
           createdAt: now,
           updatedAt: now,
         );
@@ -89,10 +99,16 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         if (widget.expense != null) {
           // Update existing expense
           final updatedExpense = expense.copyWith(id: widget.expense!['id']);
-          await _databaseService.updateExpense(updatedExpense);
+          // Update the BLoC
+          if (mounted) {
+            context.read<ExpenseBloc>().add(UpdateExpense(updatedExpense));
+          }
         } else {
           // Create new expense
-          await _databaseService.insertExpense(expense);
+          // Add to the BLoC
+          if (mounted) {
+            context.read<ExpenseBloc>().add(AddExpense(expense));
+          }
         }
 
         if (mounted) {
@@ -100,9 +116,9 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error saving expense: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error saving expense: $e')));
         }
       } finally {
         if (mounted) {
@@ -118,9 +134,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       appBar: AppBar(
         title: Text(
           widget.expense == null ? 'Add Expense' : 'Edit Expense',
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         leading: IconButton(
@@ -140,6 +154,8 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                 const SizedBox(height: 20),
                 _buildAmountField(),
                 const SizedBox(height: 20),
+                _buildDescriptionField(),
+                const SizedBox(height: 20),
                 _buildCategoryDropdown(),
                 const SizedBox(height: 20),
                 _buildDatePicker(),
@@ -151,22 +167,27 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  child:
+                      _isSubmitting
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                          : Text(
+                            widget.expense == null
+                                ? 'Save Expense'
+                                : 'Update Expense',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        )
-                      : Text(
-                          widget.expense == null ? 'Save Expense' : 'Update Expense',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                 ),
               ],
             ),
@@ -183,9 +204,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         labelText: 'Title',
         hintText: 'Enter expense title',
         prefixIcon: const Icon(Icons.title),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -207,9 +226,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
         labelText: 'Amount',
         hintText: '0.00',
         prefixIcon: const Icon(Icons.currency_rupee),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -223,40 +240,44 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
     );
   }
 
+  Widget _buildDescriptionField() {
+    return TextFormField(
+      controller: _descriptionController,
+      maxLines: 3,
+      decoration: InputDecoration(
+        labelText: 'Description (Optional)',
+        hintText: 'Add notes about this expense...',
+        prefixIcon: const Icon(Icons.notes),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        alignLabelWithHint: true,
+      ),
+      validator: (value) {
+        // Description is optional, so no validation needed
+        return null;
+      },
+    );
+  }
+
   Widget _buildCategoryDropdown() {
     return DropdownButtonFormField<ExpenseCategory>(
       value: _selectedCategory,
       decoration: InputDecoration(
         labelText: 'Category',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        prefixIcon: _selectedCategory != null
-            ? Icon(
-                _selectedCategory!.icon,
-                color: _selectedCategory!.color,
-              )
-            : const Icon(Icons.category),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon:
+            _selectedCategory != null
+                ? Icon(_selectedCategory!.icon, color: _selectedCategory!.color)
+                : const Icon(Icons.category),
       ),
-      items: ExpenseCategory.categories.map((category) {
-        return DropdownMenuItem<ExpenseCategory>(
-          value: category,
-          child: Row(
-            children: [
-              Icon(
-                category.icon,
-                color: category.color,
-                size: 24,
+      items:
+          ExpenseCategory.categories.map((category) {
+            return DropdownMenuItem<ExpenseCategory>(
+              value: category,
+              child: Row(
+                children: [Text(category.name, style: GoogleFonts.poppins())],
               ),
-              const SizedBox(width: 12),
-              Text(
-                category.name,
-                style: GoogleFonts.poppins(),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
       onChanged: (ExpenseCategory? value) {
         setState(() {
           _selectedCategory = value;
@@ -277,9 +298,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: 'Date',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           prefixIcon: const Icon(Icons.calendar_today),
         ),
         child: Row(

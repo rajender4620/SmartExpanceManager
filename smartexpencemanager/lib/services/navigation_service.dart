@@ -6,13 +6,20 @@ import 'package:smartexpencemanager/screens/expense_form_screen.dart';
 import 'package:smartexpencemanager/screens/main_layout.dart';
 import 'package:smartexpencemanager/screens/onboarding_screen.dart';
 import 'package:smartexpencemanager/screens/splash_screen.dart';
+import 'package:smartexpencemanager/screens/login_screen.dart';
+import 'package:smartexpencemanager/screens/auth_wrapper.dart';
+import 'package:smartexpencemanager/screens/welcome_screen.dart';
 import 'package:smartexpencemanager/test_database.dart';
+import 'package:smartexpencemanager/screens/database_viewer_screen.dart';
 
 class NavigationService {
   static final GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
 
   static const String splash = '/';
+  static const String login = '/login';
+  static const String authWrapper = '/auth';
+  static const String welcome = '/welcome';
   static const String onboarding = '/onboarding';
   static const String dashboard = '/dashboard';
   static const String expenses = '/expenses';
@@ -20,6 +27,7 @@ class NavigationService {
   static const String insights = '/insights';
   static const String expenseForm = '/expense-form';
   static const String databaseTest = '/database-test';
+  static const String databaseViewer = '/database-viewer';
 
   /// Navigate to a specific tab in the main layout
   static void navigateToTab(BuildContext context, int tabIndex) {
@@ -36,6 +44,12 @@ class NavigationService {
     switch (settings.name) {
       case splash:
         return MaterialPageRoute(builder: (_) => const SplashScreen());
+      case login:
+        return MaterialPageRoute(builder: (_) => const LoginScreen());
+      case authWrapper:
+        return MaterialPageRoute(builder: (_) => const AuthWrapper());
+      case welcome:
+        return MaterialPageRoute(builder: (_) => const WelcomeScreen());
       case onboarding:
         return MaterialPageRoute(builder: (_) => const OnboardingScreen());
       case dashboard:
@@ -83,6 +97,10 @@ class NavigationService {
       case databaseTest:
         return MaterialPageRoute(
           builder: (_) => const DatabaseTestScreen(),
+        );
+      case databaseViewer:
+        return MaterialPageRoute(
+          builder: (_) => const DatabaseViewerScreen(),
         );
       default:
         return MaterialPageRoute(
