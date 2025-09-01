@@ -10,6 +10,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc() : super(AuthState.initial()) {
     on<CheckAuthStatus>(_onCheckAuthStatus);
     on<GoogleSignInRequested>(_onGoogleSignInRequested);
+    on<EmailSignInRequested>(_onEmailSignInRequested);
+    on<EmailSignUpRequested>(_onEmailSignUpRequested);
+    on<PasswordResetRequested>(_onPasswordResetRequested);
     on<SignOutRequested>(_onSignOutRequested);
     on<AuthStateChanged>(_onAuthStateChanged);
 
@@ -44,19 +47,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           userPhotoUrl: currentUser.photoURL,
         ));
       } else {
-        // Check if user was logged in before (from SharedPreferences)
-        final isLoggedIn = await _authService.isLoggedIn();
-        if (isLoggedIn) {
-          final userData = await _authService.getUserDataFromPrefs();
-          emit(state.copyWith(
-            status: AuthStatus.authenticated,
-            userEmail: userData['email'],
-            userName: userData['name'],
-            userPhotoUrl: userData['photoUrl'],
-          ));
-        } else {
-          emit(state.copyWith(status: AuthStatus.unauthenticated));
-        }
+        // Firebase user is null, user is not authenticated
+        emit(state.copyWith(status: AuthStatus.unauthenticated));
+        // Clear any stale SharedPreferences data
+        await _authService.signOut();
       }
     } catch (e) {
       emit(state.copyWith(
@@ -88,6 +82,76 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(state.copyWith(
         status: AuthStatus.error,
         errorMessage: 'Google Sign-In failed. Please try again.',
+      ));
+    }
+  }
+
+  Future<void> _onEmailSignInRequested(EmailSignInRequested event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading));
+    
+    try {
+      final userCredential = await _authService.signInWithEmailAndPassword(
+        email: event.email,
+        password: event.password,
+      );
+      
+      final user = userCredential.user;
+      if (user != null) {
+        emit(state.copyWith(
+          status: AuthStatus.authenticated,
+          userEmail: user.email,
+          userName: user.displayName,
+          userPhotoUrl: user.photoURL,
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      ));
+    }
+  }
+
+  Future<void> _onEmailSignUpRequested(EmailSignUpRequested event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading));
+    
+    try {
+      final userCredential = await _authService.signUpWithEmailAndPassword(
+        email: event.email,
+        password: event.password,
+        name: event.name,
+      );
+      
+      final user = userCredential.user;
+      if (user != null) {
+        emit(state.copyWith(
+          status: AuthStatus.authenticated,
+          userEmail: user.email,
+          userName: user.displayName,
+          userPhotoUrl: user.photoURL,
+        ));
+      }
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      ));
+    }
+  }
+
+  Future<void> _onPasswordResetRequested(PasswordResetRequested event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading));
+    
+    try {
+      await _authService.resetPassword(event.email);
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        errorMessage: 'Password reset email sent. Please check your inbox.',
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
       ));
     }
   }

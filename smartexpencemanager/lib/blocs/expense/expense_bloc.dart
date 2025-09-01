@@ -124,9 +124,11 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     AddExpense event,
     Emitter<ExpenseState> emit,
   ) async {
+    emit(state.copyWith(status: ExpenseStatus.loading));
     try {
       await _databaseService.insertExpense(event.expense);
-      add(const RefreshExpenses());
+      // Reload all expense data and emit success state
+      await _reloadAndEmitExpenses(emit);
     } catch (e) {
       emit(state.copyWith(
         status: ExpenseStatus.failure,
@@ -139,9 +141,11 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     UpdateExpense event,
     Emitter<ExpenseState> emit,
   ) async {
+    emit(state.copyWith(status: ExpenseStatus.loading));
     try {
       await _databaseService.updateExpense(event.expense);
-      add(const RefreshExpenses());
+      // Reload all expense data and emit success state
+      await _reloadAndEmitExpenses(emit);
     } catch (e) {
       emit(state.copyWith(
         status: ExpenseStatus.failure,
@@ -154,9 +158,11 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     DeleteExpense event,
     Emitter<ExpenseState> emit,
   ) async {
+    emit(state.copyWith(status: ExpenseStatus.loading));
     try {
       await _databaseService.deleteExpense(event.expenseId);
-      add(const RefreshExpenses());
+      // Reload all expense data and emit success state
+      await _reloadAndEmitExpenses(emit);
     } catch (e) {
       emit(state.copyWith(
         status: ExpenseStatus.failure,
@@ -169,7 +175,34 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     RefreshExpenses event,
     Emitter<ExpenseState> emit,
   ) async {
-    add(const LoadExpenses());
+    emit(state.copyWith(status: ExpenseStatus.loading));
+    try {
+      // Reload all expense data and emit success state
+      await _reloadAndEmitExpenses(emit);
+    } catch (e) {
+      emit(state.copyWith(
+        status: ExpenseStatus.failure,
+        errorMessage: e.toString(),
+      ));
+    }
+  }
+
+  // Helper method to reload all expense data and emit success state
+  Future<void> _reloadAndEmitExpenses(Emitter<ExpenseState> emit) async {
+    final expenses = await _databaseService.getAllExpenses();
+    final categoryTotals = await _databaseService.getTotalExpensesByCategory();
+    final expensesByCategory = _groupExpensesByCategory(expenses);
+    final totalExpenses = categoryTotals.values.fold(0.0, (sum, value) => sum + value);
+    final trendData = await _generateTrendData(expenses);
+
+    emit(state.copyWith(
+      status: ExpenseStatus.success,
+      expenses: expenses,
+      categoryTotals: categoryTotals,
+      expensesByCategory: expensesByCategory,
+      totalExpenses: totalExpenses,
+      trendData: trendData,
+    ));
   }
 
   Map<String, List<Expense>> _groupExpensesByCategory(List<Expense> expenses) {

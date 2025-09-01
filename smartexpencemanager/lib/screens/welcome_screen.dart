@@ -44,22 +44,29 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
     _animationController.forward();
 
-    // Navigate to dashboard after animation
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          NavigationService.dashboard,
-          (route) => false,
-        );
-      }
-    });
+    // Don't auto-navigate - let AuthWrapper handle navigation
+    // This prevents navigation stack issues
+    // Future.delayed(const Duration(seconds: 2), () {
+    //   if (mounted) {
+    //     _navigateToDashboard();
+    //   }
+    // });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  void _navigateToDashboard() {
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        NavigationService.authWrapper,
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -77,8 +84,33 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: BlocBuilder<AuthBloc, AuthState>(
+          child: Stack(
+            children: [
+              // Skip button
+              Positioned(
+                top: 20,
+                right: 20,
+                child: TextButton(
+                  onPressed: _navigateToDashboard,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: Text(
+                    'Skip',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: BlocBuilder<AuthBloc, AuthState>(
               builder: (context, authState) {
                 return AnimatedBuilder(
                   animation: _animationController,
@@ -139,25 +171,26 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               ),
                             const SizedBox(height: 48),
                             
-                            // Loading indicator
-                            SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white.withOpacity(0.8),
+                            // Continue button
+                            ElevatedButton(
+                              onPressed: _navigateToDashboard,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            
-                            // Loading text
-                            Text(
-                              'Setting up your dashboard...',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.white.withOpacity(0.8),
+                              child: Text(
+                                'Continue to Dashboard',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -168,6 +201,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 );
               },
             ),
+              ),
+            ],
           ),
         ),
       ),

@@ -17,6 +17,83 @@ class FirebaseAuthService {
   // Stream of auth changes
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
+  // Email & Password Sign In
+  Future<UserCredential> signInWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      // Save user data to SharedPreferences
+      await _saveUserDataToPrefs(userCredential.user);
+
+      return userCredential;
+    } catch (e) {
+      throw Exception('Email sign-in failed: ${_getAuthErrorMessage(e)}');
+    }
+  }
+
+  // Email & Password Sign Up
+  Future<UserCredential> signUpWithEmailAndPassword({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    try {
+      final UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+
+      // Update display name
+      await userCredential.user?.updateDisplayName(name.trim());
+      await userCredential.user?.reload();
+
+      // Save user data to SharedPreferences
+      await _saveUserDataToPrefs(_firebaseAuth.currentUser);
+
+      return userCredential;
+    } catch (e) {
+      throw Exception('Email sign-up failed: ${_getAuthErrorMessage(e)}');
+    }
+  }
+
+  // Password Reset
+  Future<void> resetPassword(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+    } catch (e) {
+      throw Exception('Password reset failed: ${_getAuthErrorMessage(e)}');
+    }
+  }
+
+  // Helper method to get user-friendly error messages
+  String _getAuthErrorMessage(dynamic error) {
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'user-not-found':
+          return 'No user found with this email address.';
+        case 'wrong-password':
+          return 'Incorrect password.';
+        case 'email-already-in-use':
+          return 'An account already exists with this email address.';
+        case 'weak-password':
+          return 'Password is too weak. Please choose a stronger password.';
+        case 'invalid-email':
+          return 'Invalid email address.';
+        case 'too-many-requests':
+          return 'Too many failed attempts. Please try again later.';
+        default:
+          return error.message ?? 'An error occurred.';
+      }
+    }
+    return error.toString();
+  }
+
   // Google Sign In
   Future<UserCredential?> signInWithGoogle() async {
     try {
