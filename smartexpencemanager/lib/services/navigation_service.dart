@@ -4,7 +4,7 @@ import 'package:smartexpencemanager/blocs/navigation/navigation_bloc.dart';
 import 'package:smartexpencemanager/blocs/navigation/navigation_event.dart';
 import 'package:smartexpencemanager/screens/expense_form_screen.dart';
 import 'package:smartexpencemanager/screens/main_layout.dart';
-import 'package:smartexpencemanager/screens/onboarding_screen.dart';
+
 import 'package:smartexpencemanager/screens/splash_screen.dart';
 import 'package:smartexpencemanager/screens/login_screen.dart';
 import 'package:smartexpencemanager/screens/auth_wrapper.dart';
@@ -20,7 +20,7 @@ class NavigationService {
   static const String login = '/login';
   static const String authWrapper = '/auth';
   static const String welcome = '/welcome';
-  static const String onboarding = '/onboarding';
+
   static const String dashboard = '/dashboard';
   static const String expenses = '/expenses';
   static const String reports = '/reports';
@@ -50,8 +50,7 @@ class NavigationService {
         return MaterialPageRoute(builder: (_) => const AuthWrapper());
       case welcome:
         return MaterialPageRoute(builder: (_) => const WelcomeScreen());
-      case onboarding:
-        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
+
       case dashboard:
         return MaterialPageRoute(
           builder: (context) {

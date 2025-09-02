@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.example.smartexpencemanager"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "25.1.8937393" // Using a stable NDK version
+    ndkVersion = "27.0.12077973" // Using a stable NDK version
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
