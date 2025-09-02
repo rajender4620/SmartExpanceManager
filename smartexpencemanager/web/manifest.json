@@ -1,11 +1,11 @@
 {
-    "name": "Smart Expense Manager",
-    "short_name": "Smart Expense",
+    "name": "smartexpencemanager",
+    "short_name": "smartexpencemanager",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#4CAF50",
     "theme_color": "#66BB6A",
-    "description": "Smart Expense Manager - Track your money smartly",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

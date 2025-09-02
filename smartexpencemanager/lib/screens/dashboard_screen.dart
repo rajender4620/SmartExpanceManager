@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:smartexpencemanager/blocs/navigation/navigation_bloc.dart';
@@ -6,6 +8,7 @@ import 'package:smartexpencemanager/blocs/navigation/navigation_event.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_bloc.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_event.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_state.dart';
+import 'package:smartexpencemanager/services/firestore_database.dart';
 
 import 'package:smartexpencemanager/services/navigation_service.dart';
 import 'package:smartexpencemanager/models/expense.dart';
@@ -78,6 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
     return BlocBuilder<ExpenseBloc, ExpenseState>(
       builder: (context, state) {
         if (state.status == ExpenseStatus.loading) {
@@ -117,7 +121,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         stops: const [0.0, 0.5, 1.0],
                         colors: [
                           Theme.of(context).colorScheme.surface,
-                          Theme.of(context).colorScheme.surface.withOpacity(0.98),
+                          Theme.of(
+                            context,
+                          ).colorScheme.surface.withOpacity(0.98),
                           Theme.of(context).colorScheme.surface,
                         ],
                       ),
@@ -144,7 +150,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               child: Column(
                                 children: [
-                                  _buildWelcomeHeader(context),
+                                  GestureDetector(
+                                    onTap: () {
+                                      FirebaseFirestoreDb().getUser(
+                                        firebaseAuth.currentUser!.uid,
+                                      );
+                                    },
+                                    child: _buildWelcomeHeader(context),
+                                  ),
                                   const SizedBox(height: 24),
                                   _buildSpendingOverview(
                                     context,
@@ -241,12 +254,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-            flexibleSpace: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
-        ),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
       ),
-            actions: [
+      actions: [
         Container(
           margin: const EdgeInsets.only(right: 8),
           child: Row(
@@ -285,35 +296,35 @@ class _DashboardScreenState extends State<DashboardScreen>
                           backgroundColor: Colors.white,
                           child:
                               authState.userPhotoUrl != null
-                            ? ClipRRect(
+                                  ? ClipRRect(
                                     borderRadius: BorderRadius.circular(18),
-                                child: Image.network(
-                                  authState.userPhotoUrl!,
+                                    child: Image.network(
+                                      authState.userPhotoUrl!,
                                       width: 36,
                                       height: 36,
-                                  fit: BoxFit.cover,
+                                      fit: BoxFit.cover,
                                       errorBuilder: (
                                         context,
                                         error,
                                         stackTrace,
                                       ) {
-                                    return Icon(
-                                      Icons.person,
-                                      size: 20,
+                                        return Icon(
+                                          Icons.person,
+                                          size: 20,
                                           color:
                                               Theme.of(
                                                 context,
                                               ).colorScheme.primary,
-                                    );
-                                  },
-                                ),
-                              )
-                            : Icon(
-                                Icons.person,
-                                size: 20,
+                                        );
+                                      },
+                                    ),
+                                  )
+                                  : Icon(
+                                    Icons.person,
+                                    size: 20,
                                     color:
                                         Theme.of(context).colorScheme.primary,
-                              ),
+                                  ),
                         ),
                       ),
                       shape: RoundedRectangleBorder(
@@ -326,14 +337,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                       },
                       itemBuilder:
                           (context) => [
-                        PopupMenuItem(
-                          value: 'profile',
+                            PopupMenuItem(
+                              value: 'profile',
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                          child: Row(
-                            children: [
+                                child: Row(
+                                  children: [
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
@@ -352,39 +363,39 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                              Column(
+                                    Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    authState.userName ?? 'User',
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600,
+                                      children: [
+                                        Text(
+                                          authState.userName ?? 'User',
+                                          style: GoogleFonts.poppins(
+                                            fontWeight: FontWeight.w600,
                                             fontSize: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          authState.userEmail ?? '',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  Text(
-                                    authState.userEmail ?? '',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
-                        ),
                             ),
                             const PopupMenuDivider(),
-                        PopupMenuItem(
-                          value: 'logout',
+                            PopupMenuItem(
+                              value: 'logout',
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 8,
                                 ),
-                          child: Row(
-                            children: [
+                                child: Row(
+                                  children: [
                                     Container(
                                       padding: const EdgeInsets.all(8),
                                       decoration: BoxDecoration(
@@ -398,18 +409,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                              Text(
-                                'Sign Out',
+                                    Text(
+                                      'Sign Out',
                                       style: GoogleFonts.poppins(
                                         color: Colors.red,
                                         fontWeight: FontWeight.w500,
                                       ),
-                              ),
-                            ],
+                                    ),
+                                  ],
                                 ),
-                          ),
-                        ),
-                      ],
+                              ),
+                            ),
+                          ],
                     );
                   }
                   return const SizedBox.shrink();
@@ -470,7 +481,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   ) {
     return Container(
       padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primary,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
@@ -480,33 +491,33 @@ class _DashboardScreenState extends State<DashboardScreen>
             offset: const Offset(0, 6),
           ),
         ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+                children: [
+                  Text(
                     'This Month\'s Spending',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
                       color: Colors.white.withOpacity(0.9),
                       fontWeight: FontWeight.w500,
                     ),
-            ),
-            const SizedBox(height: 8),
-            Text(
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
                     '₹${currentMonthTotal.toStringAsFixed(2)}',
-              style: GoogleFonts.poppins(
+                    style: GoogleFonts.poppins(
                       fontSize: 36,
                       fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
-            ),
+                      color: Colors.white,
+                    ),
+                  ),
                 ],
               ),
               Container(
@@ -524,10 +535,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ],
-              ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
               Expanded(
                 child: _buildSpendingStat(
                   context,
@@ -570,9 +581,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
-            ),
-          ],
-        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -593,8 +604,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               Icon(icon, color: Colors.white.withOpacity(0.8), size: 16),
@@ -610,13 +621,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
           const SizedBox(height: 8),
-              Text(
+          Text(
             value,
-                style: GoogleFonts.poppins(
+            style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -658,14 +669,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Icons.add_circle_outline_rounded,
                   Theme.of(context).colorScheme.primary,
                   () async {
-          final result = await Navigator.pushNamed(
-            context,
-            NavigationService.expenseForm,
-          );
-          if (result != null) {
-            context.read<ExpenseBloc>().add(const RefreshExpenses());
-          }
-        },
+                    final result = await Navigator.pushNamed(
+                      context,
+                      NavigationService.expenseForm,
+                    );
+                    if (result != null) {
+                      context.read<ExpenseBloc>().add(const RefreshExpenses());
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -749,7 +760,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 24),
-                ),
+              ),
               const SizedBox(height: 12),
               Text(
                 title,
@@ -776,7 +787,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ..take(4);
 
     return Container(
-        padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
@@ -788,37 +799,37 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
                 'Top Categories',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: Theme.of(context).colorScheme.onSurface,
-                  ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    context.read<NavigationBloc>().add(
+              ),
+              TextButton(
+                onPressed: () {
+                  context.read<NavigationBloc>().add(
                     const UpdateNavigationIndex(2),
-                    );
-                  },
-                  child: Text(
+                  );
+                },
+                child: Text(
                   'View All',
-                    style: GoogleFonts.poppins(
-                      color: Theme.of(context).colorScheme.primary,
+                  style: GoogleFonts.poppins(
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.w600,
-                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           ...topCategories.map((entry) {
             final percentage = (entry.value / state.totalExpenses * 100);
             return Padding(
@@ -853,10 +864,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         border: Border.all(color: categoryColor.withOpacity(0.1)),
       ),
       child: Row(
-                    children: [
-                      Container(
+        children: [
+          Container(
             padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
+            decoration: BoxDecoration(
               color: categoryColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -867,11 +878,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                      Text(
+                Text(
                   category,
-                        style: GoogleFonts.poppins(
+                  style: GoogleFonts.poppins(
                     fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
@@ -888,9 +899,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-                      Text(
+              Text(
                 '₹${amount.toStringAsFixed(2)}',
-                        style: GoogleFonts.poppins(
+                style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: Theme.of(context).colorScheme.onSurface,
@@ -898,12 +909,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               Text(
                 '${percentage.toStringAsFixed(1)}%',
-                          style: GoogleFonts.poppins(
+                style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: categoryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ],
@@ -925,9 +936,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1013,8 +1024,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: categoryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
+                          fontWeight: FontWeight.w500,
+                        ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -1031,7 +1042,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                Text(
+                    Text(
                       '${expense.date.day}/${expense.date.month}/${expense.date.year}',
                       style: GoogleFonts.poppins(
                         fontSize: 12,
@@ -1060,8 +1071,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildSmartInsightsSection(BuildContext context, ExpenseState state) {
     return Container(
-        decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+      decoration: BoxDecoration(
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withOpacity(0.3),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
@@ -1095,10 +1108,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
-          borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -1112,11 +1127,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
                               Text(
                                 'Smart Insights',
                                 style: GoogleFonts.poppins(
@@ -1125,34 +1140,39 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   color:
                                       Theme.of(context).colorScheme.onSurface,
                                 ),
-                ),
-                const SizedBox(width: 8),
+                              ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary.withOpacity(0.2),
                                     width: 1,
                                   ),
                                 ),
                                 child: Text(
                                   'AI',
-                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.poppins(
                                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
-                  ),
-                ),
-              ],
-            ),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 4),
-            Text(
+                          Text(
                             'Powered by advanced analytics',
                             style: GoogleFonts.poppins(
                               fontSize: 14,
@@ -1197,7 +1217,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withOpacity(0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -1207,16 +1229,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () {
-                context.read<NavigationBloc>().add(
-                  const UpdateNavigationIndex(3),
-                );
-              },
+                        context.read<NavigationBloc>().add(
+                          const UpdateNavigationIndex(3),
+                        );
+                      },
                       borderRadius: BorderRadius.circular(16),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
+                          children: [
                             Icon(
                               Icons.insights_rounded,
                               color: Theme.of(context).colorScheme.onPrimary,
@@ -1225,7 +1247,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             const SizedBox(width: 8),
                             Text(
                               'Unlock All Insights',
-                style: GoogleFonts.poppins(
+                              style: GoogleFonts.poppins(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
                                 color: Theme.of(context).colorScheme.onPrimary,
@@ -1234,10 +1256,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ],
                         ),
                       ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
+              ],
             ),
           ),
         ),
@@ -1364,9 +1386,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
           const SizedBox(height: 12),
-              Text(
+          Text(
             insight.title,
-                style: GoogleFonts.poppins(
+            style: GoogleFonts.poppins(
               fontSize: 12,
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
               fontWeight: FontWeight.w500,
@@ -1387,9 +1409,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             style: GoogleFonts.poppins(
               fontSize: 11,
               color: insight.color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -1399,7 +1421,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
@@ -1527,42 +1551,42 @@ class _DashboardScreenState extends State<DashboardScreen>
         border: Border.all(color: color.withOpacity(0.1)),
       ),
       child: Row(
-      children: [
-        Container(
+        children: [
+          Container(
             padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
+            decoration: BoxDecoration(
               color: color.withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
-          ),
+            ),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.poppins(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
                     fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
                 const SizedBox(height: 4),
-              Text(
-                description,
-                style: GoogleFonts.poppins(
+                Text(
+                  description,
+                  style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Theme.of(
                       context,
                     ).colorScheme.onSurface.withOpacity(0.7),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }

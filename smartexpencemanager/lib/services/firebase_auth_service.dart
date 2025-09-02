@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:smartexpencemanager/services/firestore_database.dart';
 
 class FirebaseAuthService {
   static const String _isLoggedInKey = 'is_logged_in';
@@ -23,12 +24,12 @@ class FirebaseAuthService {
     required String password,
   }) async {
     try {
-      final UserCredential userCredential = await _firebaseAuth.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      final UserCredential userCredential = await _firebaseAuth
+          .signInWithEmailAndPassword(email: email.trim(), password: password);
 
       // Save user data to SharedPreferences
+
+      ;
       await _saveUserDataToPrefs(userCredential.user);
 
       return userCredential;
@@ -44,10 +45,11 @@ class FirebaseAuthService {
     required String name,
   }) async {
     try {
-      final UserCredential userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      final UserCredential userCredential = await _firebaseAuth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
 
       // Update display name
       await userCredential.user?.updateDisplayName(name.trim());
@@ -99,14 +101,15 @@ class FirebaseAuthService {
     try {
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         // User canceled the sign-in
         return null;
       }
 
       // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -115,8 +118,10 @@ class FirebaseAuthService {
       );
 
       // Sign in to Firebase with the Google credentials
-      final UserCredential userCredential = await _firebaseAuth.signInWithCredential(credential);
+      final UserCredential userCredential = await _firebaseAuth
+          .signInWithCredential(credential);
 
+      FirebaseFirestoreDb().adduser(userCredential.user!);
       // Save user data to SharedPreferences
       await _saveUserDataToPrefs(userCredential.user);
 
@@ -129,10 +134,7 @@ class FirebaseAuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      await Future.wait([
-        _firebaseAuth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      await Future.wait([_firebaseAuth.signOut(), _googleSignIn.signOut()]);
 
       // Clear stored auth data
       await _clearUserDataFromPrefs();
@@ -195,12 +197,13 @@ class FirebaseAuthService {
   Future<void> reauthenticateWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
+
       if (googleUser == null) {
         throw Exception('Reauthentication canceled');
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
