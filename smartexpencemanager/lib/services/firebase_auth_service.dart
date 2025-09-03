@@ -29,7 +29,6 @@ class FirebaseAuthService {
 
       // Save user data to SharedPreferences
 
-      ;
       await _saveUserDataToPrefs(userCredential.user);
 
       return userCredential;
