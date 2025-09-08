@@ -1,0 +1,75 @@
+# 📌 Firebase FCM – Flutter Interview Q&A Cheatsheet
+
+**Q1. What is FCM?**  
+👉 Firebase Cloud Messaging, a service to send push notifications to mobile devices.  
+
+---
+
+**Q2. Steps to set up FCM in Flutter?**  
+👉  
+1. Add `firebase_core` + `firebase_messaging`.  
+2. Add `google-services.json` / `GoogleService-Info.plist`.  
+3. Initialize Firebase in `main.dart`.  
+4. Request notification permissions.  
+5. Get FCM token and listen for messages.  
+
+---
+
+**Q3. How do you get device token?**  
+👉  
+```dart
+String? token = await FirebaseMessaging.instance.getToken();
+```  
+
+---
+
+**Q4. What are app states for notifications?**  
+👉  
+- **Foreground** → `onMessage` fires (no auto system notification).  
+- **Background** → System shows notification automatically.  
+- **Terminated** → Notification shows, tap gives data via `getInitialMessage()`.  
+
+---
+
+**Q5. Why use `flutter_local_notifications`?**  
+👉 Because Android does not show notifications in foreground.  
+
+---
+
+**Q6. Notification vs Data payload?**  
+👉  
+- **Notification payload** → auto system notification (background/terminated).  
+- **Data payload** → only key-values; app must handle and show manually.  
+
+---
+
+**Q7. Handle notification tap (background/terminated)?**  
+👉  
+```dart
+FirebaseMessaging.onMessageOpenedApp.listen((msg) { ... });
+RemoteMessage? initial = await FirebaseMessaging.instance.getInitialMessage();
+```  
+
+---
+
+**Q8. Handle background messages?**  
+👉  
+```dart
+Future<void> _bgHandler(RemoteMessage msg) async {
+  print("Background: ${msg.messageId}");
+}
+FirebaseMessaging.onBackgroundMessage(_bgHandler);
+```  
+
+---
+
+**Q9. Where to store token?**  
+👉 Save in backend (e.g., Firestore) linked to user, so you can send targeted notifications.  
+
+---
+
+**Q10. Common issues?**  
+👉  
+- No foreground notification → need local notifications.  
+- Forgot permission request (Android 13, iOS).  
+- Token refresh not handled → must update backend.  

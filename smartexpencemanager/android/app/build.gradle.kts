@@ -43,6 +43,7 @@ android {
 dependencies {
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.1.0"))
+    implementation("com.google.firebase:firebase-messaging")
   
   
     // TODO: Add the dependencies for Firebase products you want to use

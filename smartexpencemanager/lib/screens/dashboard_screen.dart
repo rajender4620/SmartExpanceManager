@@ -7,6 +7,7 @@ import 'package:smartexpencemanager/blocs/navigation/navigation_event.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_bloc.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_event.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_state.dart';
+import 'package:smartexpencemanager/screens/keep_notes_screen.dart';
 import 'package:smartexpencemanager/services/firestore_database.dart';
 
 import 'package:smartexpencemanager/services/navigation_service.dart';
@@ -151,12 +152,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 children: [
                                   GestureDetector(
                                     onTap: () {
-                                      FirebaseFirestoreDb().getUser(
-                                        firebaseAuth.currentUser!.uid,
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) {
+                                            return const KeepNotesScreen();
+                                          },
+                                        ),
                                       );
                                     },
-                                    child: _buildWelcomeHeader(context),
+                                    child: Center(child: Text('Keep Notes')),
                                   ),
+                                  const SizedBox(height: 24),
+                                  _buildWelcomeHeader(context),
                                   const SizedBox(height: 24),
                                   _buildSpendingOverview(
                                     context,
@@ -251,6 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   AppBar _buildModernAppBar(BuildContext context) {
     return AppBar(
+      automaticallyImplyLeading: false,
       backgroundColor: Colors.transparent,
       elevation: 0,
       flexibleSpace: Container(

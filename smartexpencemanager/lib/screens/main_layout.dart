@@ -15,49 +15,35 @@ class MainLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<NavigationBloc, NavigationState>(
       builder: (context, state) {
-        return PopScope(
-          // Handle back button behavior in the main app
-          canPop: false,
-          onPopInvoked: (didPop) {
-            if (didPop) return;
-            // On back press, navigate to home tab if not already there
-            if (state.currentIndex != 0) {
-              context.read<NavigationBloc>().add(const UpdateNavigationIndex(0));
-            } else {
-              // If on home tab, show exit confirmation
-              _showExitConfirmation(context);
-            }
-          },
-          child: Scaffold(
-            body: _getCurrentScreen(state.currentIndex),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: state.currentIndex,
-              onDestinationSelected: (index) {
-                context.read<NavigationBloc>().add(UpdateNavigationIndex(index));
-              },
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.home_outlined),
-                  selectedIcon: Icon(Icons.home),
-                  label: 'Home',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long),
-                  label: 'Expenses',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart),
-                  label: 'Reports',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.insights_outlined),
-                  selectedIcon: Icon(Icons.insights),
-                  label: 'Insights',
-                ),
-              ],
-            ),
+        return Scaffold(
+          body: _getCurrentScreen(state.currentIndex),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: state.currentIndex,
+            onDestinationSelected: (index) {
+              context.read<NavigationBloc>().add(UpdateNavigationIndex(index));
+            },
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long),
+                label: 'Expenses',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.bar_chart_outlined),
+                selectedIcon: Icon(Icons.bar_chart),
+                label: 'Reports',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.insights_outlined),
+                selectedIcon: Icon(Icons.insights),
+                label: 'Insights',
+              ),
+            ],
           ),
         );
       },

@@ -1,16 +1,20 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartexpencemanager/services/firestore_database.dart';
+import 'package:smartexpencemanager/services/fcm_service.dart';
 
 class FirebaseAuthService {
   static const String _isLoggedInKey = 'is_logged_in';
   static const String _userEmailKey = 'user_email';
   static const String _userNameKey = 'user_name';
   static const String _userPhotoUrlKey = 'user_photo_url';
-
+  static const String _userFcmTokenKey = 'user_fcm_token';
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestoreDb _firebaseFirestoreDb = FirebaseFirestoreDb();
+  final FirebaseFcmService _firebaseFcmService = FirebaseFcmService();
 
   // Get current user
   User? get currentUser => _firebaseAuth.currentUser;
@@ -120,7 +124,7 @@ class FirebaseAuthService {
       final UserCredential userCredential = await _firebaseAuth
           .signInWithCredential(credential);
 
-      FirebaseFirestoreDb().adduser(userCredential.user!);
+      _firebaseFirestoreDb.addUser(userCredential.user);
       // Save user data to SharedPreferences
       await _saveUserDataToPrefs(userCredential.user);
 
@@ -150,6 +154,10 @@ class FirebaseAuthService {
       await prefs.setString(_userEmailKey, user.email ?? '');
       await prefs.setString(_userNameKey, user.displayName ?? '');
       await prefs.setString(_userPhotoUrlKey, user.photoURL ?? '');
+      await prefs.setString(
+        _userFcmTokenKey,
+        await _firebaseFcmService.getToken() ?? '',
+      );
     }
   }
 
@@ -160,6 +168,7 @@ class FirebaseAuthService {
     await prefs.remove(_userEmailKey);
     await prefs.remove(_userNameKey);
     await prefs.remove(_userPhotoUrlKey);
+    await prefs.remove(_userFcmTokenKey);
   }
 
   // Check if user is logged in from SharedPreferences
@@ -175,6 +184,7 @@ class FirebaseAuthService {
       'email': prefs.getString(_userEmailKey),
       'name': prefs.getString(_userNameKey),
       'photoUrl': prefs.getString(_userPhotoUrlKey),
+      'fcmToken': prefs.getString(_userFcmTokenKey),
     };
   }
 

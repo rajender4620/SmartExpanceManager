@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_notification_channel_id">smart_expense_channel</string>
+    <string name="default_notification_channel_name">Smart Expense Notifications</string>
+    <string name="default_notification_channel_description">Receive notifications about your expenses and insights</string>
+</resources>
