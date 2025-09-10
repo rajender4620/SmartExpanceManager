@@ -8,7 +8,6 @@ import 'package:smartexpencemanager/blocs/expense/expense_bloc.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_event.dart';
 import 'package:smartexpencemanager/blocs/expense/expense_state.dart';
 import 'package:smartexpencemanager/screens/keep_notes_screen.dart';
-import 'package:smartexpencemanager/services/firestore_database.dart';
 
 import 'package:smartexpencemanager/services/navigation_service.dart';
 import 'package:smartexpencemanager/models/expense.dart';
@@ -150,20 +149,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                               child: Column(
                                 children: [
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) {
-                                            return const KeepNotesScreen();
-                                          },
-                                        ),
-                                      );
-                                    },
-                                    child: Center(child: Text('Keep Notes')),
-                                  ),
-                                  const SizedBox(height: 24),
+                                  // GestureDetector(
+                                  //   onTap: () {
+                                  //     Navigator.push(
+                                  //       context,
+                                  //       MaterialPageRoute(
+                                  //         builder: (context) {
+                                  //           return const KeepNotesScreen();
+                                  //         },
+                                  //       ),
+                                  //     );
+                                  //   },
+                                  //   child: Center(child: Text('Keep Notes')),
+                                  // ),
+                                  // const SizedBox(height: 24),
                                   _buildWelcomeHeader(context),
                                   const SizedBox(height: 24),
                                   _buildSpendingOverview(
@@ -270,25 +269,25 @@ class _DashboardScreenState extends State<DashboardScreen>
           margin: const EdgeInsets.only(right: 8),
           child: Row(
             children: [
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? Icons.light_mode_rounded
-                        : Icons.dark_mode_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                onPressed: () {
-                  // Toggle theme - you'll need to implement this
-                },
-              ),
+              // IconButton(
+              //   icon: Container(
+              //     padding: const EdgeInsets.all(8),
+              //     decoration: BoxDecoration(
+              //       color: Colors.white.withOpacity(0.2),
+              //       borderRadius: BorderRadius.circular(12),
+              //     ),
+              //     child: Icon(
+              //       Theme.of(context).brightness == Brightness.dark
+              //           ? Icons.light_mode_rounded
+              //           : Icons.dark_mode_rounded,
+              //       color: Colors.white,
+              //       size: 20,
+              //     ),
+              //   ),
+              //   onPressed: () {
+              //     // Toggle theme - you'll need to implement this
+              //   },
+              // ),
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (context, authState) {
                   if (authState.isAuthenticated) {

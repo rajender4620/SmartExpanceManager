@@ -35,19 +35,17 @@ class FirebaseFirestoreDb {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) throw Exception('No user signed in');
 
-      if (currentUser != null) {
-        await db
-            .collection(USERS)
-            .doc(currentUser!.uid)
-            .collection(NOTES)
-            .add(
-              note.toJson()..addAll({
-                "createdAt": FieldValue.serverTimestamp(),
-                "updatedAt": FieldValue.serverTimestamp(),
-              }),
-            );
-      }
-    } catch (e) {
+      await db
+          .collection(USERS)
+          .doc(currentUser!.uid)
+          .collection(NOTES)
+          .add(
+            note.toJson()..addAll({
+              "createdAt": FieldValue.serverTimestamp(),
+              "updatedAt": FieldValue.serverTimestamp(),
+            }),
+          );
+        } catch (e) {
       throw Exception('Failed to add note: $e');
     }
   }

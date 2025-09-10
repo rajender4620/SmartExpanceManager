@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:smartexpencemanager/models/notes.dart';
 import 'package:smartexpencemanager/services/firestore_database.dart';
 
 class KeepNotesScreen extends StatelessWidget {
